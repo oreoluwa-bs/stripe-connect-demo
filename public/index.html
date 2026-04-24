@@ -70,7 +70,32 @@
             </div>
         </div>
 
-        <footer style="margin-top: 40px; text-align: center;">
+        <!-- Transfer Between Accounts Section -->
+        <div id="transfer-between-section" class="section hidden">
+            <p class="section-title">Move Funds Between Accounts</p>
+            <div class="card">
+                <div class="input-group">
+                    <label for="from-account-between">Source Account ID</label>
+                    <input type="text" id="from-account-between" placeholder="acct_A..." readonly>
+                </div>
+                <div class="input-group">
+                    <label for="to-account-between">Destination Account ID</label>
+                    <input type="text" id="to-account-between" placeholder="acct_B...">
+                </div>
+                <div class="input-group">
+                    <label for="transfer-id">Transfer ID (to reverse)</label>
+                    <input type="text" id="transfer-id" placeholder="tr_...">
+                </div>
+                <div class="input-group">
+                    <label for="between-amount">Amount (USD)</label>
+                    <input type="number" id="between-amount" placeholder="e.g. 5.00" value="5.00">
+                </div>
+                <button id="btn-transfer-between" class="secondary">
+                    <span>Perform Cross-Account Transfer</span>
+                </button>
+            </div>
+        </div>
+
             <button id="btn-reset" class="secondary" style="width: auto; padding: 8px 16px; font-size: 0.75rem;">Reset Session (LocalOnly)</button>
         </footer>
     </div>
@@ -83,13 +108,16 @@
         const hasAccountEl = document.getElementById('has-account');
         const depositSection = document.getElementById('deposit-section');
         const transferSection = document.getElementById('transfer-section');
+        const transferBetweenSection = document.getElementById('transfer-between-section');
         const accountIdDisplay = document.getElementById('display-account-id');
+        const fromAccountBetween = document.getElementById('from-account-between');
         
         const btnCreateAccount = document.getElementById('btn-create-account');
         const btnOnboard = document.getElementById('btn-onboard');
         const btnDashboard = document.getElementById('btn-dashboard');
         const btnDeposit = document.getElementById('btn-deposit');
         const btnTransfer = document.getElementById('btn-transfer');
+        const btnTransferBetween = document.getElementById('btn-transfer-between');
         const btnReset = document.getElementById('btn-reset');
 
         let accountId = localStorage.getItem('stripe_account_id');
@@ -100,12 +128,15 @@
                 hasAccountEl.classList.remove('hidden');
                 depositSection.classList.remove('hidden');
                 transferSection.classList.remove('hidden');
+                transferBetweenSection.classList.remove('hidden');
                 accountIdDisplay.textContent = accountId;
+                fromAccountBetween.value = accountId;
             } else {
                 noAccountEl.classList.remove('hidden');
                 hasAccountEl.classList.add('hidden');
                 depositSection.classList.add('hidden');
                 transferSection.classList.add('hidden');
+                transferBetweenSection.classList.add('hidden');
             }
         }
 
@@ -232,6 +263,45 @@
             } finally {
                 btnTransfer.disabled = false;
                 btnTransfer.innerHTML = '<span>Send Transfer</span>';
+            }
+        });
+
+        // 5. Transfer Between (Cross-Account)
+        btnTransferBetween.addEventListener('click', async () => {
+            const fromAccount = accountId;
+            const toAccount = document.getElementById('to-account-between').value;
+            const transferId = document.getElementById('transfer-id').value;
+            const amount = parseFloat(document.getElementById('between-amount').value);
+
+            if (!toAccount || !transferId) return alert('Enter destination and transfer ID');
+            if (isNaN(amount) || amount <= 0) return alert('Enter a valid amount');
+
+            btnTransferBetween.disabled = true;
+            btnTransferBetween.innerHTML = '<div class="loader"></div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/transfer-between`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fromAccountId: fromAccount,
+                        toAccountId: toAccount,
+                        transferId: transferId,
+                        amount: Math.round(amount * 100),
+                        currency: 'usd'
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Cross-account transfer successful! New Transfer ID: ' + data.transfer.id);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Request failed');
+            } finally {
+                btnTransferBetween.disabled = false;
+                btnTransferBetween.innerHTML = '<span>Perform Cross-Account Transfer</span>';
             }
         });
 

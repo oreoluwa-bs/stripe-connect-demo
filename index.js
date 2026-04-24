@@ -43,17 +43,30 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 app.use(express.json());
 
 /**
- * Step 1: Create a Connect Account
- * This creates an Express account by default.
+ * Step 1: Create a Connect Account (Using Accounts v2)
+ * This ensures long-term support and follows the latest recommendations.
  */
 app.post('/api/connect/create-account', async (req, res) => {
   try {
-    const account = await stripe.accounts.create({
-      type: 'express',
+    const account = await stripe.v2.core.accounts.create({
+      capabilities: {
+        transfers: { requested: true },
+        payments: { requested: true },
+      },
+      dashboard: {
+        type: 'express', // Provides the hosted Express dashboard
+      },
+      defaults: {
+        responsibilities: {
+          payments: 'connected_account',
+          payouts: 'connected_account',
+          disputes: 'platform_account', // Platform handles disputes for simplicity
+        }
+      }
     });
     res.json({ accountId: account.id });
   } catch (error) {
-    console.error('Error creating account:', error);
+    console.error('Error creating account (v2):', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -148,6 +161,38 @@ app.post('/api/connect/transfer', async (req, res) => {
     res.json(transfer);
   } catch (error) {
     console.error('Error creating transfer:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Step 6: Transfer Between Accounts
+ * Moves funds from Account A back to Platform, then to Account B.
+ * Requires the original transferId to perform a reversal.
+ */
+app.post('/api/connect/transfer-between', async (req, res) => {
+  try {
+    const { fromAccountId, toAccountId, amount, transferId } = req.body;
+
+    if (!fromAccountId || !toAccountId || !amount || !transferId) {
+      return res.status(400).json({ error: 'Missing fromAccountId, toAccountId, amount, or transferId' });
+    }
+
+    // 1. Reverse the original transfer (pull funds back to platform)
+    await stripe.transfers.createReversal(transferId, {
+      amount: amount,
+    });
+
+    // 2. Create a new transfer to the destination account
+    const newTransfer = await stripe.transfers.create({
+      amount: amount,
+      currency: 'usd',
+      destination: toAccountId,
+    });
+
+    res.json({ success: true, transfer: newTransfer });
+  } catch (error) {
+    console.error('Error in transfer-between:', error);
     res.status(500).json({ error: error.message });
   }
 });
