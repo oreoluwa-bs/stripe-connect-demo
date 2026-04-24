@@ -7,6 +7,8 @@ const app = express();
 const port = process.env.PORT || 4242;
 
 app.use(cors());
+app.use(express.static('public'));
+
 
 // Webhook endpoint needs raw body for signature verification
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
