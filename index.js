@@ -127,6 +127,31 @@ app.post('/api/connect/create-deposit', async (req, res) => {
   }
 });
 
+/**
+ * Step 5: Transfer Funds
+ * Moves funds from the platform balance to a connected account.
+ */
+app.post('/api/connect/transfer', async (req, res) => {
+  try {
+    const { destinationAccountId, amount, currency = 'usd' } = req.body;
+
+    if (!destinationAccountId || !amount) {
+      return res.status(400).json({ error: 'destinationAccountId and amount are required' });
+    }
+
+    const transfer = await stripe.transfers.create({
+      amount: amount,
+      currency: currency,
+      destination: destinationAccountId,
+    });
+
+    res.json(transfer);
+  } catch (error) {
+    console.error('Error creating transfer:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });

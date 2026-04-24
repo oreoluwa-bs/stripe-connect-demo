@@ -52,6 +52,24 @@
             </div>
         </div>
 
+        <!-- Transfer Section -->
+        <div id="transfer-section" class="section hidden">
+            <p class="section-title">Transfer Funds</p>
+            <div class="card">
+                <div class="input-group">
+                    <label for="to-account">Destination Account ID</label>
+                    <input type="text" id="to-account" placeholder="acct_...">
+                </div>
+                <div class="input-group">
+                    <label for="transfer-amount">Amount (USD)</label>
+                    <input type="number" id="transfer-amount" placeholder="e.g. 10.00" value="10.00">
+                </div>
+                <button id="btn-transfer" class="secondary">
+                    <span>Send Transfer</span>
+                </button>
+            </div>
+        </div>
+
         <footer style="margin-top: 40px; text-align: center;">
             <button id="btn-reset" class="secondary" style="width: auto; padding: 8px 16px; font-size: 0.75rem;">Reset Session (LocalOnly)</button>
         </footer>
@@ -64,12 +82,14 @@
         const noAccountEl = document.getElementById('no-account');
         const hasAccountEl = document.getElementById('has-account');
         const depositSection = document.getElementById('deposit-section');
+        const transferSection = document.getElementById('transfer-section');
         const accountIdDisplay = document.getElementById('display-account-id');
         
         const btnCreateAccount = document.getElementById('btn-create-account');
         const btnOnboard = document.getElementById('btn-onboard');
         const btnDashboard = document.getElementById('btn-dashboard');
         const btnDeposit = document.getElementById('btn-deposit');
+        const btnTransfer = document.getElementById('btn-transfer');
         const btnReset = document.getElementById('btn-reset');
 
         let accountId = localStorage.getItem('stripe_account_id');
@@ -79,11 +99,13 @@
                 noAccountEl.classList.add('hidden');
                 hasAccountEl.classList.remove('hidden');
                 depositSection.classList.remove('hidden');
+                transferSection.classList.remove('hidden');
                 accountIdDisplay.textContent = accountId;
             } else {
                 noAccountEl.classList.remove('hidden');
                 hasAccountEl.classList.add('hidden');
                 depositSection.classList.add('hidden');
+                transferSection.classList.add('hidden');
             }
         }
 
@@ -175,6 +197,41 @@
             } finally {
                 btnDeposit.disabled = false;
                 btnDeposit.innerHTML = '<span>Deposit to Account</span>';
+            }
+        });
+
+        // 4. Transfer
+        btnTransfer.addEventListener('click', async () => {
+            const toAccount = document.getElementById('to-account').value;
+            const amount = parseFloat(document.getElementById('transfer-amount').value);
+            
+            if (!toAccount) return alert('Enter destination account ID');
+            if (isNaN(amount) || amount <= 0) return alert('Enter a valid amount');
+
+            btnTransfer.disabled = true;
+            btnTransfer.innerHTML = '<div class="loader"></div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/transfer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        destinationAccountId: toAccount,
+                        amount: Math.round(amount * 100),
+                        currency: 'usd'
+                    })
+                });
+                const data = await res.json();
+                if (data.id) {
+                    alert('Transfer successful! ID: ' + data.id);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Request failed');
+            } finally {
+                btnTransfer.disabled = false;
+                btnTransfer.innerHTML = '<span>Send Transfer</span>';
             }
         });
 
